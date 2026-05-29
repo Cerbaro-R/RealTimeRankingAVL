@@ -1,310 +1,143 @@
 #include "rn.h"
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-static NoRN* criar_no(ArvoreRN *arvore, Jogador jogador) {
-    NoRN *no = (NoRN*)malloc(sizeof(NoRN));
-    no->jogador = jogador;
-    no->pai = no->esquerda = no->direita = arvore->NULO;
-    no->cor = VERMELHO;
-    return no;
+// Funcao para criar um no (usa o no Nulo como sentinela)
+NoRN* rn_criar_no(Jogador j, NoRN *nulo) {
+    NoRN *novo = (NoRN*)malloc(sizeof(NoRN));
+    if (novo) {
+        novo->jogador = j;
+        novo->cor = VERMELHO; // Todo no novo nasce vermelho
+        novo->esq = nulo;
+        novo->dir = nulo;
+        novo->pai = nulo;
+    }
+    return novo;
 }
 
-static void rotacionar_esquerda(ArvoreRN *arvore, NoRN *x) {
-    NoRN *y = x->direita;
-    x->direita = y->esquerda;
-    if (y->esquerda != arvore->NULO) {
-        y->esquerda->pai = x;
-    }
+// Rotacao para a esquerda (padrao Cormen)
+void rotar_esq_rn(NoRN **raiz, NoRN *nulo, NoRN *x, int *ajustes) {
+    NoRN *y = x->dir;
+    x->dir = y->esq;
+    if (y->esq != nulo) y->esq->pai = x;
     y->pai = x->pai;
-    if (x->pai == NULL) {
-        arvore->raiz = y;
-    } else if (x == x->pai->esquerda) {
-        x->pai->esquerda = y;
-    } else {
-        x->pai->direita = y;
-    }
-    y->esquerda = x;
+    if (x->pai == nulo) *raiz = y;
+    else if (x == x->pai->esq) x->pai->esq = y;
+    else x->pai->dir = y;
+    y->esq = x;
     x->pai = y;
+    (*ajustes)++;
 }
 
-static void rotacionar_direita(ArvoreRN *arvore, NoRN *y) {
-    NoRN *x = y->esquerda;
-    y->esquerda = x->direita;
-    if (x->direita != arvore->NULO) {
-        x->direita->pai = y;
-    }
+// Rotacao para a direita (padrao Cormen)
+void rotar_dir_rn(NoRN **raiz, NoRN *nulo, NoRN *y, int *ajustes) {
+    NoRN *x = y->esq;
+    y->esq = x->dir;
+    if (x->dir != nulo) x->dir->pai = y;
     x->pai = y->pai;
-    if (y->pai == NULL) {
-        arvore->raiz = x;
-    } else if (y == y->pai->esquerda) {
-        y->pai->esquerda = x;
-    } else {
-        y->pai->direita = x;
-    }
-    x->direita = y;
+    if (y->pai == nulo) *raiz = x;
+    else if (y == y->pai->esq) y->pai->esq = x;
+    else y->pai->dir = x;
+    x->dir = y;
     y->pai = x;
+    (*ajustes)++;
 }
 
-static void corrigir_insercao(ArvoreRN *arvore, NoRN *k) {
-    NoRN *u;
-    while (k->pai != NULL && k->pai->cor == VERMELHO) {
-        if (k->pai == k->pai->pai->direita) {
-            u = k->pai->pai->esquerda;
-            if (u->cor == VERMELHO) {
-                u->cor = PRETO;
-                k->pai->cor = PRETO;
-                k->pai->pai->cor = VERMELHO;
-                k = k->pai->pai;
+// Funcao para consertar o balanceamento apos insercao
+void consertar_insercao(NoRN **raiz, NoRN *nulo, NoRN *z, int *ajustes) {
+    while (z->pai->cor == VERMELHO) {
+        if (z->pai == z->pai->pai->esq) {
+            NoRN *y = z->pai->pai->dir;
+            if (y->cor == VERMELHO) { // Caso 1
+                z->pai->cor = PRETO;
+                y->cor = PRETO;
+                z->pai->pai->cor = VERMELHO;
+                z = z->pai->pai;
             } else {
-                if (k == k->pai->esquerda) {
-                    k = k->pai;
-                    rotacionar_direita(arvore, k);
+                if (z == z->pai->dir) { // Caso 2
+                    z = z->pai;
+                    rotar_esq_rn(raiz, nulo, z, ajustes);
                 }
-                k->pai->cor = PRETO;
-                k->pai->pai->cor = VERMELHO;
-                rotacionar_esquerda(arvore, k->pai->pai);
-                arvore->eventos_balanceamento++;
+                // Caso 3
+                z->pai->cor = PRETO;
+                z->pai->pai->cor = VERMELHO;
+                rotar_dir_rn(raiz, nulo, z->pai->pai, ajustes);
             }
         } else {
-            u = k->pai->pai->direita;
-            if (u->cor == VERMELHO) {
-                u->cor = PRETO;
-                k->pai->cor = PRETO;
-                k->pai->pai->cor = VERMELHO;
-                k = k->pai->pai;
+            NoRN *y = z->pai->pai->esq;
+            if (y->cor == VERMELHO) {
+                z->pai->cor = PRETO;
+                y->cor = PRETO;
+                z->pai->pai->cor = VERMELHO;
+                z = z->pai->pai;
             } else {
-                if (k == k->pai->direita) {
-                    k = k->pai;
-                    rotacionar_esquerda(arvore, k);
+                if (z == z->pai->esq) {
+                    z = z->pai;
+                    rotar_dir_rn(raiz, nulo, z, ajustes);
                 }
-                k->pai->cor = PRETO;
-                k->pai->pai->cor = VERMELHO;
-                rotacionar_direita(arvore, k->pai->pai);
-                arvore->eventos_balanceamento++;
+                z->pai->cor = PRETO;
+                z->pai->pai->cor = VERMELHO;
+                rotar_esq_rn(raiz, nulo, z->pai->pai, ajustes);
             }
         }
-        if (k == arvore->raiz) break;
     }
-    arvore->raiz->cor = PRETO;
+    (*raiz)->cor = PRETO;
 }
 
-void rn_inicializar(ArvoreRN *arvore) {
-    arvore->NULO = (NoRN*)malloc(sizeof(NoRN));
-    arvore->NULO->cor = PRETO;
-    arvore->NULO->esquerda = arvore->NULO->direita = arvore->NULO->pai = NULL;
-    arvore->raiz = arvore->NULO;
-    arvore->eventos_balanceamento = 0;
-}
+// Insere um jogador na Rubro-Negra
+void rn_inserir(NoRN **raiz, NoRN *nulo, Jogador j, int *ajustes) {
+    NoRN *z = rn_criar_no(j, nulo);
+    NoRN *y = nulo;
+    NoRN *x = *raiz;
 
-void rn_inserir(ArvoreRN *arvore, Jogador jogador) {
-    NoRN *no = criar_no(arvore, jogador);
-
-    NoRN *y = NULL;
-    NoRN *x = arvore->raiz;
-
-    while (x != arvore->NULO) {
+    while (x != nulo) {
         y = x;
-        if (no->jogador.pontuacao < x->jogador.pontuacao) {
-            x = x->esquerda;
-        } else if (no->jogador.pontuacao > x->jogador.pontuacao) {
-            x = x->direita;
-        } else {
-            free(no);
-            return;
+        if (z->jogador.pontuacao < x->jogador.pontuacao)
+            x = x->esq;
+        else
+            x = x->dir;
+    }
+
+    z->pai = y;
+    if (y == nulo) *raiz = z;
+    else if (z->jogador.pontuacao < y->jogador.pontuacao)
+        y->esq = z;
+    else
+        y->dir = z;
+
+    consertar_insercao(raiz, nulo, z, ajustes);
+}
+
+// Exibe ranking decrescente
+void rn_exibir_ranking(NoRN *raiz, NoRN *nulo, int *posicao) {
+    if (raiz != nulo && *posicao < 10) {
+        rn_exibir_ranking(raiz->dir, nulo, posicao);
+        if (*posicao < 10) {
+            (*posicao)++;
+            printf("%d lugar: %s - %d pontos (%s)\n",
+                   *posicao, raiz->jogador.nome, raiz->jogador.pontuacao,
+                   raiz->cor == VERMELHO ? "V" : "P");
         }
-    }
-
-    no->pai = y;
-    if (y == NULL) {
-        arvore->raiz = no;
-    } else if (no->jogador.pontuacao < y->jogador.pontuacao) {
-        y->esquerda = no;
-    } else {
-        y->direita = no;
-    }
-
-    if (no->pai == NULL) {
-        no->cor = PRETO;
-        return;
-    }
-
-    if (no->pai->pai == NULL) {
-        return;
-    }
-
-    corrigir_insercao(arvore, no);
-}
-
-static void rn_transplante(ArvoreRN *arvore, NoRN *u, NoRN *v) {
-    if (u->pai == NULL) {
-        arvore->raiz = v;
-    } else if (u == u->pai->esquerda) {
-        u->pai->esquerda = v;
-    } else {
-        u->pai->direita = v;
-    }
-    v->pai = u->pai;
-}
-
-static void corrigir_remocao(ArvoreRN *arvore, NoRN *x) {
-    NoRN *s;
-    while (x != arvore->raiz && x->cor == PRETO) {
-        if (x == x->pai->esquerda) {
-            s = x->pai->direita;
-            if (s->cor == VERMELHO) {
-                s->cor = PRETO;
-                x->pai->cor = VERMELHO;
-                rotacionar_esquerda(arvore, x->pai);
-                arvore->eventos_balanceamento++;
-                s = x->pai->direita;
-            }
-
-            if (s->esquerda->cor == PRETO && s->direita->cor == PRETO) {
-                s->cor = VERMELHO;
-                x = x->pai;
-            } else {
-                if (s->direita->cor == PRETO) {
-                    s->esquerda->cor = PRETO;
-                    s->cor = VERMELHO;
-                    rotacionar_direita(arvore, s);
-                    arvore->eventos_balanceamento++;
-                    s = x->pai->direita;
-                }
-
-                s->cor = x->pai->cor;
-                x->pai->cor = PRETO;
-                s->direita->cor = PRETO;
-                rotacionar_esquerda(arvore, x->pai);
-                arvore->eventos_balanceamento++;
-                x = arvore->raiz;
-            }
-        } else {
-            s = x->pai->esquerda;
-            if (s->cor == VERMELHO) {
-                s->cor = PRETO;
-                x->pai->cor = VERMELHO;
-                rotacionar_direita(arvore, x->pai);
-                arvore->eventos_balanceamento++;
-                s = x->pai->esquerda;
-            }
-
-            if (s->direita->cor == PRETO && s->esquerda->cor == PRETO) {
-                s->cor = VERMELHO;
-                x = x->pai;
-            } else {
-                if (s->esquerda->cor == PRETO) {
-                    s->direita->cor = PRETO;
-                    s->cor = VERMELHO;
-                    rotacionar_esquerda(arvore, s);
-                    arvore->eventos_balanceamento++;
-                    s = x->pai->esquerda;
-                }
-
-                s->cor = x->pai->cor;
-                x->pai->cor = PRETO;
-                s->esquerda->cor = PRETO;
-                rotacionar_direita(arvore, x->pai);
-                arvore->eventos_balanceamento++;
-                x = arvore->raiz;
-            }
-        }
-    }
-    x->cor = PRETO;
-}
-
-static NoRN* minimo(ArvoreRN *arvore, NoRN *no) {
-    while (no->esquerda != arvore->NULO) {
-        no = no->esquerda;
-    }
-    return no;
-}
-
-void rn_remover(ArvoreRN *arvore, int pontuacao) {
-    NoRN *z = arvore->NULO;
-    NoRN *x, *y;
-    NoRN *no = arvore->raiz;
-
-    while (no != arvore->NULO) {
-        if (no->jogador.pontuacao == pontuacao) {
-            z = no;
-            break;
-        }
-
-        if (no->jogador.pontuacao <= pontuacao) {
-            no = no->direita;
-        } else {
-            no = no->esquerda;
-        }
-    }
-
-    if (z == arvore->NULO) return;
-
-    y = z;
-    Cor cor_original_y = y->cor;
-    if (z->esquerda == arvore->NULO) {
-        x = z->direita;
-        rn_transplante(arvore, z, z->direita);
-    } else if (z->direita == arvore->NULO) {
-        x = z->esquerda;
-        rn_transplante(arvore, z, z->esquerda);
-    } else {
-        y = minimo(arvore, z->direita);
-        cor_original_y = y->cor;
-        x = y->direita;
-        if (y->pai == z) {
-            x->pai = y;
-        } else {
-            rn_transplante(arvore, y, y->direita);
-            y->direita = z->direita;
-            y->direita->pai = y;
-        }
-
-        rn_transplante(arvore, z, y);
-        y->esquerda = z->esquerda;
-        y->esquerda->pai = y;
-        y->cor = z->cor;
-    }
-    free(z);
-    if (cor_original_y == PRETO) {
-        corrigir_remocao(arvore, x);
+        rn_exibir_ranking(raiz->esq, nulo, posicao);
     }
 }
 
-NoRN* rn_buscar(ArvoreRN *arvore, int pontuacao) {
-    NoRN *atual = arvore->raiz;
-    while (atual != arvore->NULO) {
-        if (pontuacao == atual->jogador.pontuacao) return atual;
-        if (pontuacao < atual->jogador.pontuacao) atual = atual->esquerda;
-        else atual = atual->direita;
+// Busca por nome
+NoRN* rn_buscar(NoRN *raiz, NoRN *nulo, char *nome) {
+    if (raiz == nulo) return NULL;
+    if (strcmp(raiz->jogador.nome, nome) == 0) return raiz;
+
+    NoRN *res = rn_buscar(raiz->esq, nulo, nome);
+    if (res) return res;
+    return rn_buscar(raiz->dir, nulo, nome);
+}
+
+// Libera memoria
+void rn_liberar(NoRN *raiz, NoRN *nulo) {
+    if (raiz != nulo) {
+        rn_liberar(raiz->esq, nulo);
+        rn_liberar(raiz->dir, nulo);
+        free(raiz);
     }
-    return NULL;
-}
-
-static void em_ordem_inversa(ArvoreRN *arvore, NoRN *no, int *contador) {
-    if (no == arvore->NULO || *contador >= 10) return;
-    em_ordem_inversa(arvore, no->direita, contador);
-    if (*contador < 10) {
-        printf("%d. %s - %d\n", ++(*contador), no->jogador.nome, no->jogador.pontuacao);
-    }
-    em_ordem_inversa(arvore, no->esquerda, contador);
-}
-
-void rn_exibir_top_10(ArvoreRN *arvore) {
-    int contador = 0;
-    em_ordem_inversa(arvore, arvore->raiz, &contador);
-}
-
-static void destruir(ArvoreRN *arvore, NoRN *no) {
-    if (no != arvore->NULO) {
-        destruir(arvore, no->esquerda);
-        destruir(arvore, no->direita);
-        free(no);
-    }
-}
-
-void rn_destruir(ArvoreRN *arvore) {
-    destruir(arvore, arvore->raiz);
-    free(arvore->NULO);
-    arvore->raiz = NULL;
 }

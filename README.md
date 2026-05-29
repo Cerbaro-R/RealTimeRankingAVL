@@ -1,55 +1,32 @@
-# Sistema de Ranking em Tempo Real
+# Sistema de Ranking - AVL vs Rubro-Negra
 
-Este projeto implementa um sistema de ranking para torneios esportivos de alta performance, utilizando estruturas de dados balanceadas para garantir eficiência em inserções, remoções e buscas.
+Este projeto foi desenvolvido para a disciplina de **Estrutura de Dados II**. O objetivo é comparar o desempenho de duas árvores binárias balanceadas (AVL e Rubro-Negra) em um sistema de ranking de jogadores.
 
-## 🚀 Objetivo
+## 🚀 Funcionalidades
+*   **Cadastro Manual:** Insira o nome e a pontuação de um jogador.
+*   **Ranking Top 10:** Exibe os 10 melhores jogadores usando a lógica de cada árvore.
+*   **Busca:** Encontre a pontuação de um jogador pelo nome.
+*   **Teste de Estresse:** Gera 10.000 jogadores aleatórios para comparar o tempo de inserção e a quantidade de balanceamentos de cada estrutura.
 
-O sistema foi desenvolvido para processar atualizações de pontuação a cada segundo, permitindo:
-1.  Exibir o **Top-10** jogadores sempre atualizado.
-2.  Realizar **buscas por nome** em tempo real ($O(\log N)$).
-3.  Comparar o desempenho entre **Árvores AVL** e **Árvores Rubro-Negras (RN)**.
+## 🛠️ Como Compilar e Rodar
+Certifique-se de ter o `gcc` instalado em sua máquina.
 
-## 🛠️ Tecnologias e Estruturas
-
-O projeto foi desenvolvido em **C11** e utiliza as seguintes técnicas:
-
-*   **Árvore AVL:** Garante um balanceamento rigoroso, otimizando o tempo de busca.
-*   **Árvore Rubro-Negra (RN):** Oferece um balanceamento mais flexível, otimizando inserções e remoções frequentes.
-*   **Dual Indexing (Indexação Dupla):**
-    *   Um índice por **Pontuação** (Árvore) para gerar o ranking.
-    *   Um índice por **Nome** (Árvore) para buscas instantâneas por jogador.
+1. Abra o terminal na pasta do projeto.
+2. Compile com o seguinte comando:
+   ```bash
+   gcc main.c avl.c rn.c -o ranking
+   ```
+3. Execute o programa:
+   ```bash
+   ./ranking
+   ```
 
 ## 📂 Estrutura do Projeto
-
-*   `main.c`: Demonstração do sistema e execução dos testes.
+*   `main.c`: Menu interativo e lógica principal.
 *   `avl.c/h`: Implementação da Árvore AVL.
 *   `rn.c/h`: Implementação da Árvore Rubro-Negra.
-*   `sistema_ranking.c/h`: Orquestrador que gerencia os múltiplos índices.
-*   `desempenho.c/h`: Módulo de benchmark para medir tempo e eventos de balanceamento.
-*   `jogador.h`: Definição da estrutura de dados do competidor.
-*   `RELATORIO.md`: Análise técnica detalhada comparando as duas estruturas.
-
-## 🔨 Compilação e Execução
-
-Para compilar o projeto utilizando o GCC:
-
-```bash
-gcc -O3 main.c avl.c rn.c sistema_ranking.c desempenho.c -o RealTimeRankingAVL
-```
-
-Para executar:
-
-```bash
-./RealTimeRankingAVL
-```
-
-## 📊 Teste de Desempenho
-
-O sistema inclui um teste automático com **10.000 operações** aleatórias de inserção e remoção. Ao final da execução, são exibidos os tempos de CPU e a quantidade de ajustes (rotações/trocas de cor) realizados por cada estrutura.
-
-## 📝 Conclusão Técnica
-
-Com base nos testes realizados, a **Árvore Rubro-Negra** mostrou-se superior para o cenário de "tempo real" com muitas atualizações, devido ao seu menor custo computacional para reequilíbrio durante inserções e remoções em massa.
+*   `estruturas.h`: Definição da struct de Jogador.
+*   `RELATORIO.md`: Análise comparativa dos resultados.
 
 ---
-Desenvolvido para a Avaliação 2 de Estrutura de Dados.
+*Dica: Para o teste de desempenho, o programa limpa as árvores atuais e gera dados aleatórios novos.*

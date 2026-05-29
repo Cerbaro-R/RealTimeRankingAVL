@@ -1,207 +1,199 @@
 #include "avl.h"
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-static int maior(int a, int b) {
+// Funcao auxiliar para retornar o maior entre dois numeros
+int maximo(int a, int b) {
     return (a > b) ? a : b;
 }
 
-static int obter_altura(NoAVL *no) {
-    return no ? no->altura : 0;
+// Funcao que devolve a altura de um no (trata o caso de no nulo)
+int altura_no(NoAVL *n) {
+    if (n == NULL) return 0;
+    return n->altura;
 }
 
-static int obter_fator_balanceamento(NoAVL *no) {
-    return no ? obter_altura(no->esquerda) - obter_altura(no->direita) : 0;
+// Funcao para criar um novo no na memoria
+NoAVL* avl_criar_no(Jogador j) {
+    NoAVL *novo = (NoAVL*)malloc(sizeof(NoAVL));
+    if (novo) {
+        novo->jogador = j;
+        novo->esq = NULL;
+        novo->dir = NULL;
+        novo->altura = 1; // Todo no novo comeca com altura 1
+    }
+    return novo;
 }
 
-static NoAVL* criar_no(Jogador jogador) {
-    NoAVL *no = (NoAVL*)malloc(sizeof(NoAVL));
-    no->jogador = jogador;
-    no->esquerda = no->direita = NULL;
-    no->altura = 1;
-    return no;
-}
+// Rotacao para a direita (usada quando o desbalanceamento eh a esquerda)
+NoAVL* rotar_direita(NoAVL *y, int *rotacoes) {
+    NoAVL *x = y->esq;
+    NoAVL *T2 = x->dir;
 
-static NoAVL* rotacionar_direita(NoAVL *y) {
-    NoAVL *x = y->esquerda;
-    NoAVL *T2 = x->direita;
+    // Realiza a rotacao
+    x->dir = y;
+    y->esq = T2;
 
-    x->direita = y;
-    y->esquerda = T2;
+    // Atualiza as alturas
+    y->altura = maximo(altura_no(y->esq), altura_no(y->dir)) + 1;
+    x->altura = maximo(altura_no(x->esq), altura_no(x->dir)) + 1;
 
-    y->altura = maior(obter_altura(y->esquerda), obter_altura(y->direita)) + 1;
-    x->altura = maior(obter_altura(x->esquerda), obter_altura(x->direita)) + 1;
-
+    (*rotacoes)++; // Conta a rotacao para o relatorio
     return x;
 }
 
-static NoAVL* rotacionar_esquerda(NoAVL *x) {
-    NoAVL *y = x->direita;
-    NoAVL *T2 = y->esquerda;
+// Rotacao para a esquerda (usada quando o desbalanceamento eh a direita)
+NoAVL* rotar_esquerda(NoAVL *x, int *rotacoes) {
+    NoAVL *y = x->dir;
+    NoAVL *T2 = y->esq;
 
-    y->esquerda = x;
-    x->direita = T2;
+    // Realiza a rotacao
+    y->esq = x;
+    x->dir = T2;
 
-    x->altura = maior(obter_altura(x->esquerda), obter_altura(x->direita)) + 1;
-    y->altura = maior(obter_altura(y->esquerda), obter_altura(y->direita)) + 1;
+    // Atualiza as alturas
+    x->altura = maximo(altura_no(x->esq), altura_no(x->dir)) + 1;
+    y->altura = maximo(altura_no(y->esq), altura_no(y->dir)) + 1;
 
+    (*rotacoes)++;
     return y;
 }
 
-static NoAVL* inserir(NoAVL *no, Jogador jogador, long *eventos) {
-    if (!no) return criar_no(jogador);
+// Calcula o fator de balanceamento (FB = altura_esq - altura_dir)
+int obter_fb(NoAVL *n) {
+    if (n == NULL) return 0;
+    return altura_no(n->esq) - altura_no(n->dir);
+}
 
-    if (jogador.pontuacao < no->jogador.pontuacao)
-        no->esquerda = inserir(no->esquerda, jogador, eventos);
-    else if (jogador.pontuacao > no->jogador.pontuacao)
-        no->direita = inserir(no->direita, jogador, eventos);
+// Insere um jogador na Arvore AVL de forma recursiva
+NoAVL* avl_inserir(NoAVL *no, Jogador j, int *rotacoes) {
+    // 1. Insercao normal de Arvore Binaria de Busca
+    if (no == NULL) return avl_criar_no(j);
+
+    // No ranking, quem tem mais pontos vai para a direita
+    if (j.pontuacao < no->jogador.pontuacao)
+        no->esq = avl_inserir(no->esq, j, rotacoes);
+    else if (j.pontuacao > no->jogador.pontuacao)
+        no->dir = avl_inserir(no->dir, j, rotacoes);
     else
-        return no;
+        return no; // Pontuacoes iguais (nao lida aqui para simplificar)
 
-    no->altura = 1 + maior(obter_altura(no->esquerda), obter_altura(no->direita));
+    // 2. Atualiza a altura deste no ancestral
+    no->altura = 1 + maximo(altura_no(no->esq), altura_no(no->dir));
 
-    int balanceamento = obter_fator_balanceamento(no);
+    // 3. Verifica o fator de balanceamento para ver se precisa de rotacao
+    int fb = obter_fb(no);
 
-    // Esquerda-Esquerda
-    if (balanceamento > 1 && jogador.pontuacao < no->esquerda->jogador.pontuacao) {
-        (*eventos)++;
-        return rotacionar_direita(no);
+    // Caso Esquerda-Esquerda
+    if (fb > 1 && j.pontuacao < no->esq->jogador.pontuacao)
+        return rotar_direita(no, rotacoes);
+
+    // Caso Direita-Direita
+    if (fb < -1 && j.pontuacao > no->dir->jogador.pontuacao)
+        return rotar_esquerda(no, rotacoes);
+
+    // Caso Esquerda-Direita
+    if (fb > 1 && j.pontuacao > no->esq->jogador.pontuacao) {
+        no->esq = rotar_esquerda(no->esq, rotacoes);
+        return rotar_direita(no, rotacoes);
     }
 
-    // Direita-Direita
-    if (balanceamento < -1 && jogador.pontuacao > no->direita->jogador.pontuacao) {
-        (*eventos)++;
-        return rotacionar_esquerda(no);
-    }
-
-    // Esquerda-Direita
-    if (balanceamento > 1 && jogador.pontuacao > no->esquerda->jogador.pontuacao) {
-        (*eventos)++;
-        no->esquerda = rotacionar_esquerda(no->esquerda);
-        return rotacionar_direita(no);
-    }
-
-    // Direita-Esquerda
-    if (balanceamento < -1 && jogador.pontuacao < no->direita->jogador.pontuacao) {
-        (*eventos)++;
-        no->direita = rotacionar_direita(no->direita);
-        return rotacionar_esquerda(no);
+    // Caso Direita-Esquerda
+    if (fb < -1 && j.pontuacao < no->dir->jogador.pontuacao) {
+        no->dir = rotar_direita(no->dir, rotacoes);
+        return rotar_esquerda(no, rotacoes);
     }
 
     return no;
 }
 
-static NoAVL* no_valor_minimo(NoAVL *no) {
-    NoAVL *atual = no;
-    while (atual->esquerda != NULL)
-        atual = atual->esquerda;
+// Encontra o no com o menor valor (usado na remocao)
+NoAVL* menor_no(NoAVL* no) {
+    NoAVL* atual = no;
+    while (atual->esq != NULL)
+        atual = atual->esq;
     return atual;
 }
 
-static NoAVL* remover_no(NoAVL *raiz, int pontuacao, long *eventos) {
-    if (!raiz) return raiz;
+// Remove um jogador da Arvore AVL
+NoAVL* avl_remover(NoAVL* raiz, int pontuacao, int *rotacoes) {
+    if (raiz == NULL) return raiz;
 
     if (pontuacao < raiz->jogador.pontuacao)
-        raiz->esquerda = remover_no(raiz->esquerda, pontuacao, eventos);
+        raiz->esq = avl_remover(raiz->esq, pontuacao, rotacoes);
     else if (pontuacao > raiz->jogador.pontuacao)
-        raiz->direita = remover_no(raiz->direita, pontuacao, eventos);
+        raiz->dir = avl_remover(raiz->dir, pontuacao, rotacoes);
     else {
-        if ((raiz->esquerda == NULL) || (raiz->direita == NULL)) {
-            NoAVL *temp = raiz->esquerda ? raiz->esquerda : raiz->direita;
-            if (!temp) {
+        // No encontrado!
+        if ((raiz->esq == NULL) || (raiz->dir == NULL)) {
+            NoAVL *temp = raiz->esq ? raiz->esq : raiz->dir;
+
+            if (temp == NULL) {
                 temp = raiz;
                 raiz = NULL;
             } else
                 *raiz = *temp;
             free(temp);
         } else {
-            NoAVL *temp = no_valor_minimo(raiz->direita);
+            NoAVL* temp = menor_no(raiz->dir);
             raiz->jogador = temp->jogador;
-            raiz->direita = remover_no(raiz->direita, temp->jogador.pontuacao, eventos);
+            raiz->dir = avl_remover(raiz->dir, temp->jogador.pontuacao, rotacoes);
         }
     }
 
-    if (!raiz) return raiz;
+    if (raiz == NULL) return raiz;
 
-    raiz->altura = 1 + maior(obter_altura(raiz->esquerda), obter_altura(raiz->direita));
+    raiz->altura = 1 + maximo(altura_no(raiz->esq), altura_no(raiz->dir));
 
-    int balanceamento = obter_fator_balanceamento(raiz);
+    int fb = obter_fb(raiz);
 
-    // Esquerda-Esquerda
-    if (balanceamento > 1 && obter_fator_balanceamento(raiz->esquerda) >= 0) {
-        (*eventos)++;
-        return rotacionar_direita(raiz);
+    if (fb > 1 && obter_fb(raiz->esq) >= 0)
+        return rotar_direita(raiz, rotacoes);
+
+    if (fb > 1 && obter_fb(raiz->esq) < 0) {
+        raiz->esq = rotar_esquerda(raiz->esq, rotacoes);
+        return rotar_direita(raiz, rotacoes);
     }
 
-    // Esquerda-Direita
-    if (balanceamento > 1 && obter_fator_balanceamento(raiz->esquerda) < 0) {
-        (*eventos)++;
-        raiz->esquerda = rotacionar_esquerda(raiz->esquerda);
-        return rotacionar_direita(raiz);
-    }
+    if (fb < -1 && obter_fb(raiz->dir) <= 0)
+        return rotar_esquerda(raiz, rotacoes);
 
-    // Direita-Direita
-    if (balanceamento < -1 && obter_fator_balanceamento(raiz->direita) <= 0) {
-        (*eventos)++;
-        return rotacionar_esquerda(raiz);
-    }
-
-    // Direita-Esquerda
-    if (balanceamento < -1 && obter_fator_balanceamento(raiz->direita) > 0) {
-        (*eventos)++;
-        raiz->direita = rotacionar_direita(raiz->direita);
-        return rotacionar_esquerda(raiz);
+    if (fb < -1 && obter_fb(raiz->dir) > 0) {
+        raiz->dir = rotar_direita(raiz->dir, rotacoes);
+        return rotar_esquerda(raiz, rotacoes);
     }
 
     return raiz;
 }
 
-void avl_inicializar(ArvoreAVL *arvore) {
-    arvore->raiz = NULL;
-    arvore->eventos_balanceamento = 0;
+// Busca por nome (precisa percorrer a arvore toda pois esta ordenada por pontos)
+NoAVL* avl_buscar(NoAVL *raiz, char *nome) {
+    if (raiz == NULL) return NULL;
+    if (strcmp(raiz->jogador.nome, nome) == 0) return raiz;
+
+    NoAVL *res = avl_buscar(raiz->esq, nome);
+    if (res) return res;
+    return avl_buscar(raiz->dir, nome);
 }
 
-void avl_inserir(ArvoreAVL *arvore, Jogador jogador) {
-    arvore->raiz = inserir(arvore->raiz, jogador, &arvore->eventos_balanceamento);
-}
-
-void avl_remover(ArvoreAVL *arvore, int pontuacao) {
-    arvore->raiz = remover_no(arvore->raiz, pontuacao, &arvore->eventos_balanceamento);
-}
-
-NoAVL* avl_buscar(ArvoreAVL *arvore, int pontuacao) {
-    NoAVL *atual = arvore->raiz;
-    while (atual) {
-        if (pontuacao == atual->jogador.pontuacao) return atual;
-        if (pontuacao < atual->jogador.pontuacao) atual = atual->esquerda;
-        else atual = atual->direita;
-    }
-    return NULL;
-}
-
-static void em_ordem_inversa(NoAVL *no, int *contador) {
-    if (!no || *contador >= 10) return;
-    em_ordem_inversa(no->direita, contador);
-    if (*contador < 10) {
-        printf("%d. %s - %d\n", ++(*contador), no->jogador.nome, no->jogador.pontuacao);
-    }
-    em_ordem_inversa(no->esquerda, contador);
-}
-
-void avl_exibir_top_10(ArvoreAVL *arvore) {
-    int contador = 0;
-    em_ordem_inversa(arvore->raiz, &contador);
-}
-
-static void destruir(NoAVL *no) {
-    if (no) {
-        destruir(no->esquerda);
-        destruir(no->direita);
-        free(no);
+// Exibe os jogadores em ordem decrescente de pontos (In-ordem inversa)
+void avl_exibir_ranking(NoAVL *raiz, int *posicao) {
+    if (raiz != NULL && *posicao < 10) {
+        avl_exibir_ranking(raiz->dir, posicao);
+        if (*posicao < 10) {
+            (*posicao)++;
+            printf("%d lugar: %s - %d pontos\n", *posicao, raiz->jogador.nome, raiz->jogador.pontuacao);
+        }
+        avl_exibir_ranking(raiz->esq, posicao);
     }
 }
 
-void avl_destruir(ArvoreAVL *arvore) {
-    destruir(arvore->raiz);
-    arvore->raiz = NULL;
+// Limpa a arvore da memoria
+void avl_liberar(NoAVL *raiz) {
+    if (raiz != NULL) {
+        avl_liberar(raiz->esq);
+        avl_liberar(raiz->dir);
+        free(raiz);
+    }
 }

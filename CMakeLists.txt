@@ -1,6 +1,13 @@
-cmake_minimum_required(VERSION 3.29)
-project(RealTimeRankingAVL C)
+cmake_minimum_required(VERSION 3.10)
+project(RealTimeRankingAVL)
 
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD 99)
 
-add_executable(RealTimeRankingAVL main.c avl.c rn.c sistema_ranking.c desempenho.c)
+add_executable(RealTimeRankingAVL 
+    main.c 
+    avl.c 
+    avl.h 
+    rn.c 
+    rn.h 
+    estruturas.h
+)
